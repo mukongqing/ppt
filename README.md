@@ -1,118 +1,118 @@
 # Paper-to-Presentation
 
-将学术论文批量转化为课程汇报 PPT 的 Claude Code Skill。四阶段管道：图片提取 → 文字素材 → 叙事设计 → 幻灯片生成。
+A Claude Code skill that transforms a batch of academic papers into a structured slide deck through a four-stage pipeline: figure extraction → text curation → narrative architecture → slide generation.
 
-## 解决的问题
+## Why This Exists
 
-用 AI 做课程 pre 的典型翻车现场：配色花哨、标题空洞（"XX 方法介绍"）、引用格式混乱、演讲时不知道每页该讲多久。这个 Skill 把「从论文到 PPT」拆成四个串行 agent，每阶段产出结构化中间文件，出错时可以精准定位到具体阶段重来，而不是整体推翻。
+The default AI-assisted presentation workflow has predictable failure modes: garish color palettes, vacuous section headers ("Introduction to Method X"), inconsistent citation formatting, and slides that give the speaker no timing guidance. You didn't notice until you were standing at the podium.
 
-## 管道概览
+This skill decomposes the problem into four sequential agents, each producing structured, verifiable intermediate artifacts. When something goes wrong, you re-run one stage—not the entire pipeline.
+
+## Pipeline
 
 ```
-论文 PDF (papers/)
+Papers (papers/)
     │
     ▼
-┌──────────────────────────────────────┐
-│ agent1  图片提取    pdf skill        │
-│         产出: assets/figures/ + 索引  │
-└──────────────┬───────────────────────┘
+┌─────────────────────────────────────────┐
+│ agent1  Figure extraction   pdf skill   │
+│         Output: assets/figures/ + index │
+└──────────────┬──────────────────────────┘
                │
                ▼
-┌──────────────────────────────────────┐
-│ agent2  文字素材    pdf skill        │
-│         产出: 结论库 + 溯源表 + 数据表 │
-└──────────────┬───────────────────────┘
+┌─────────────────────────────────────────┐
+│ agent2  Text curation       pdf skill   │
+│         Output: claims DB + source map  │
+│                 + data tables           │
+└──────────────┬──────────────────────────┘
                │
                ▼
-┌──────────────────────────────────────┐
-│ agent3  叙事设计    ppt-creator skill │
-│         产出: 逐页规格表 (15-18页)    │
-└──────────────┬───────────────────────┘
+┌─────────────────────────────────────────┐
+│ agent3  Narrative design  ppt-creator   │
+│         Output: per-slide spec (15-18)  │
+└──────────────┬──────────────────────────┘
                │
                ▼
-┌──────────────────────────────────────┐
-│ agent4  幻灯片生成  pptx skill       │
-│         产出: final_presentation.pptx │
-└──────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│ agent4  Slide generation    pptx skill  │
+│         Output: final_presentation.pptx │
+└─────────────────────────────────────────┘
 ```
 
-## 核心设计决策
+## Design Rationale
 
-**为什么是四个 agent 而不是一个？** 每个阶段有独立的验证标准。图片漏提了重跑 agent1 即可，不用从头来。每个 agent 的 prompt 短而聚焦，产出质量远高于一个超长 prompt。
+**Why four agents instead of one?** Each stage has an independent verification gate. Figure extraction missed a plot? Re-run agent1, nothing else. A single monolithic prompt produces lower-quality output and is harder to debug. Short, focused agent prompts outperform long ones.
 
-**为什么引用放备注不放页面？** 幻灯片给观众看，越干净越好。出处追溯是讲者备查用的，丢 Speaker Notes 里不占视觉空间。
+**Why citations in speaker notes instead of on-slide?** The audience reads the slide; the speaker reads the notes. Provenance annotations belong in the latter. Clean slides, traceable claims.
 
-**为什么强制 Ocean Gradient 配色？** 不给 agent 配色的自由度。一旦让它"自己选"，结果必定是AI味浓郁的蓝橙渐变。锁定三色反而省心。
+**Why lock the color palette?** Giving an agent freedom to "pick a good color scheme" reliably produces blue-orange AI slop. Hardcoding Ocean Gradient removes this entire class of failure.
 
-## 约束一览
+## Constraints
 
-| 维度 | 规则 |
-|------|------|
-| 内容来源 | 100% 来自论文原文，不捏造不脑补 |
-| 配色 | `#065A82` / `#1C7293` / `#21295C` + 白/浅灰 |
-| 标题 | 断言式完整结论句，禁止话题标签 |
-| 引用 | 演讲备注内标注 [论文X, 第N页/段] |
-| 字体 | 微软雅黑/黑体（中）+ Arial（英数）+ Consolas（数据） |
-| 动画 | 零。禁止一切动画、转场、渐变 |
-| 字数 | 每页正文 ≤ 70 词 |
-| 备注 | 每页 45-60 秒中文口播要点 |
+| Dimension | Rule |
+|-----------|------|
+| Content provenance | 100% sourced from papers. No fabrication, no extrapolation. |
+| Color | `#065A82` / `#1C7293` / `#21295C` + white / light gray |
+| Headlines | Full assertion sentences. No topic labels. |
+| Citations | Speaker notes only: `[Paper X, Page N / Paragraph N]` |
+| Typography | System UI fonts (Segoe UI / Helvetica) + Consolas for data |
+| Animation | None. No transitions, no entrance effects, no gradients. |
+| Text density | ≤ 70 words per slide (excluding annotations) |
+| Speaker notes | 45–60 seconds of spoken material per slide |
 
-## 安装到 Claude Code
+## Installation
 
 ```bash
-# 克隆到任意位置
-git clone https://github.com/<your-username>/paper-to-presentation.git
-
-# 软链接到 Claude Code skills 目录
-ln -s "$(pwd)/paper-to-presentation" ~/.claude/skills/paper-to-presentation
+git clone https://github.com/elinglijiaoqiao/presentation-ppt-maker.git
+ln -s "$(pwd)/presentation-ppt-maker" ~/.claude/skills/paper-to-presentation
 ```
 
-或者直接复制 `SKILL.md` 到 `~/.claude/skills/paper-to-presentation/`。
+Or copy `SKILL.md` directly into `~/.claude/skills/paper-to-presentation/`.
 
-## 依赖
+## Dependencies
 
-| Skill | 用途 |
+| Skill | Role |
 |-------|------|
-| `pdf` | agent1 图片提取 + agent2 文字提取 |
-| `ppt-creator` | agent3 金字塔叙事 + 断言式标题框架 |
-| `pptx` | agent4 pptxgenjs 幻灯片生成 |
+| `pdf` | Figure extraction (agent1) + text extraction (agent2) |
+| `ppt-creator` | Pyramid-principle narrative structure + assertion headlines (agent3) |
+| `pptx` | pptxgenjs slide generation (agent4) |
 
-三个都是 Anthropic 官方 skill，Claude Code 内置。
+All three ship with Claude Code. No additional installation required.
 
-另外可搭配 `paper-search` CLI 做前置的论文检索（arXiv / Semantic Scholar / PubMed）。
+Optionally pair with a `paper-search` CLI for upstream literature retrieval (arXiv, Semantic Scholar, PubMed).
 
-## 目录结构
+## Project Layout
 
 ```
-your-pre-project/
-  papers/                    # 输入的 N 篇 PDF 论文
+your-presentation/
+  papers/                    # Input: N PDF papers
   assets/
-    figures/                 # agent1 产出：提取的图片
-    figures_index.md         # agent1 产出：图片清单
-    core_text.md             # agent2 产出：结论素材库
-    source_index.md          # agent2 产出：溯源对照表
-    data_points.md           # agent2 产出：数据速查表
+    figures/                 # agent1: extracted figures
+    figures_index.md         # agent1: figure inventory
+    core_text.md             # agent2: curated claims by chapter
+    source_index.md          # agent2: full provenance table
+    data_points.md           # agent2: key metrics quick-reference
   prd/
-    slide_outline.md         # agent3 产出：整体结构
-    slide_specs.md           # agent3 产出：逐页规格
-    source_map.md            # agent3 产出：溯源表
-  final_presentation.pptx    # agent4 最终产出
-  speaker_notes.md           # agent4 演讲备注汇总
+    slide_outline.md         # agent3: overall structure + timing
+    slide_specs.md           # agent3: per-slide spec (10 fields)
+    source_map.md            # agent3: slide-to-paper mapping
+  final_presentation.pptx    # agent4: deliverable
+  speaker_notes.md           # agent4: compiled speaker notes
 ```
 
-## 适用场景
+## Use Cases
 
-- 本科生/研究生课程专题汇报（15-20 分钟）
-- 组会论文报告
-- 学术会议 poster 转 oral presentation
-- 综述论文的图文化输出
+- Undergraduate / graduate course presentations (15–20 min)
+- Group meeting paper reports
+- Poster-to-oral conversion for conferences
+- Review article visualization
 
-## 不适用
+## Not For
 
-- 商业路演/产品发布（叙事风格完全不同）
-- 非学术内容
-- 单篇论文的 5 分钟闪电 talk（管道过重，用更轻量的方式）
+- Pitch decks or product launches (different narrative style)
+- Non-academic content
+- Single-paper lightning talks (the pipeline is overkill—use a lighter approach)
 
-## 许可
+## License
 
 MIT
