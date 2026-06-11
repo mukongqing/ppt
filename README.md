@@ -47,6 +47,14 @@ Papers (papers/)
 
 **Why lock the color palette?** Giving an agent freedom to "pick a good color scheme" reliably produces blue-orange AI slop. Hardcoding Ocean Gradient removes this entire class of failure.
 
+**Why figure verification?** The original pipeline matched figures to slides using text similarity alone — agent1 wrote a one-line "Suggested use" for each figure, agent3 assigned figures to slides by reading those lines. No agent ever looked at the actual images. A diagram labeled "method overview" could end up on an Introduction slide about background context, because the text description was too vague to disambiguate. The fix operates at three levels:
+
+1. **agent1 (richer metadata):** `figures_index.md` now includes the paper section where each figure appears and a literal visual description of what the image contains — not what it means, but what is visible. This gives agent3 three interlocking signals (section context + visual content + suggested use) instead of one fuzzy label.
+
+2. **agent3 (visual verification gate):** Before finalizing slide specs, every slide that references a figure must pass a mandatory check — the agent opens the actual image file with the `Read` tool and writes a `[VERIFY]` line confirming the visible content matches the slide's assertion headline. Mismatches trigger a figure swap or text-only fallback.
+
+3. **agent4 (keyword overlap guardrail):** As a last line of defense, before placing a figure on a slide, meaningful keywords from the slide content and figure metadata are compared. Zero overlap skips the figure and adds a warning to speaker notes.
+
 ## Constraints
 
 | Dimension | Rule |
