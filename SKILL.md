@@ -115,15 +115,16 @@ project/
      edge_density = ImageStat.Stat(img.filter(ImageFilter.FIND_EDGES)).mean[0]
      ```
   2. Flag as UNREADABLE when ALL three conditions hold:
-     - `effective_dpi > 350` (image has far more pixels than the display area can resolve)
+     - `effective_dpi > 300` (image has far more pixels than the display area can resolve)
      - `display_h < 1.5"` (the image is physically small on the slide)
      - `edge_density > 12` (content has meaningful detail — filters out smooth photos)
   3. This replaces the old `edge_density > 15 AND px_per_sq_in > 200000` rule. The new rule uses effective DPI (a physical measure immune to image encoding) as the primary signal, with edge_density as a content filter.
 - **Auto-Split for Unreadable Figures**: When a figure is flagged UNREADABLE, split the slide into two physical slides sharing the same assertion headline:
   - **Slide N-A (text page)**: Same headline + all text content at full size. Figure removed or reduced to ≤ 2" thumbnail. Page number = N.
-  - **Slide N-B (full-figure page)**: Same headline + full-size figure filling ≥ 60% of content area + one-line annotation at bottom (10-12pt gray): `[Paper X, Fig. Y] [short description — ≤ 30 Chinese chars]`. Page number = N (shared with N-A).
+  - **Slide N-B (full-figure page)**: Same headline + full-size figure maintaining original aspect ratio (constrained by available space: 9.0"w × 3.95"h, center both axes), + one-line annotation at bottom (10-12pt gray): `[Paper X, Fig. Y] [short description — ≤ 30 Chinese chars]`. Page number = N (shared with N-A).
+  - **Cleanup**: After removing an image from N-A, also remove any empty AUTO_SHAPE containers in the same (x, y) region. Ghost shapes are a common artifact of partial slide edits.
   - **Speaker notes**: N-A keeps full original notes. N-B gets: "This figure shows [one-sentence description]. Source: [Paper X, Page N]." + transition to next chapter.
-  - **Impact**: +1 slide per UNREADABLE figure. Total slide count may increase from ~15-18 to ~16-21. Speaking time +15-30s per split.
+  - **Impact**: +1 slide per UNREADABLE figure. Each N-B figure placed alone on its page — never stack multiple UNREADABLE figures on one N-B page (aspect-ratio distortion).
 
 ## Operational Notes
 
