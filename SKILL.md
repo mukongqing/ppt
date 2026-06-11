@@ -107,13 +107,18 @@ project/
 - **Figure Readability Check** (MANDATORY, before generating any slide):
   1. For every slide spec that references a figure, load the image with PIL and compute:
      ```python
+     import math
+     from PIL import Image, ImageFilter, ImageStat
      img = Image.open(path).convert('L')
-     edges = img.filter(ImageFilter.FIND_EDGES)
-     edge_density = ImageStat.Stat(edges).mean[0]
-     px_per_sq_in = (img.width * img.height) / (display_w * display_h)
+     iw, ih = img.size
+     effective_dpi = math.sqrt(iw * ih) / math.sqrt(display_w * display_h)
+     edge_density = ImageStat.Stat(img.filter(ImageFilter.FIND_EDGES)).mean[0]
      ```
-  2. If `edge_density > 15` AND `px_per_sq_in > 200000` → flag as UNREADABLE.
-  3. `display_w` and `display_h` are the planned dimensions from the slide spec's suggested layout.
+  2. Flag as UNREADABLE when ALL three conditions hold:
+     - `effective_dpi > 350` (image has far more pixels than the display area can resolve)
+     - `display_h < 1.5"` (the image is physically small on the slide)
+     - `edge_density > 12` (content has meaningful detail — filters out smooth photos)
+  3. This replaces the old `edge_density > 15 AND px_per_sq_in > 200000` rule. The new rule uses effective DPI (a physical measure immune to image encoding) as the primary signal, with edge_density as a content filter.
 - **Auto-Split for Unreadable Figures**: When a figure is flagged UNREADABLE, split the slide into two physical slides sharing the same assertion headline:
   - **Slide N-A (text page)**: Same headline + all text content at full size. Figure removed or reduced to ≤ 2" thumbnail. Page number = N.
   - **Slide N-B (full-figure page)**: Same headline + full-size figure filling ≥ 60% of content area + one-line annotation at bottom (10-12pt gray): `[Paper X, Fig. Y] [short description — ≤ 30 Chinese chars]`. Page number = N (shared with N-A).
