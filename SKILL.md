@@ -87,6 +87,28 @@ project/
   2. Extract keywords from: figure filename + agent1 Visual description
   3. Filter stop words: the, a, an, of, in, on, and, with, using, for, from, this, that, these, those
   4. If zero overlap of meaningful keywords → skip figure, use text-only layout for that slot, append to speaker notes: `⚠ FIGURE-MISMATCH: [filename] skipped — no keyword overlap with slide content. Check manually.`
+- **Layout Collision Detection** (MANDATORY for any slide with images):
+  1. Before placing or resizing any image, read ALL existing shapes on the slide — record their (x, y, w, h) in inches.
+  2. Run bounding-box overlap check: for every new or resized image, verify it does not intersect any text block's bounding box. Include a 0.15" safety margin around text blocks.
+  3. Pay special attention to bottom-aligned elements (page numbers, footers, stat callouts) — these are the most common collision victims.
+- **Text Overflow Prevention**: When resizing a text box to make room for images:
+  1. Estimate required height: count lines in the text content, multiply by line height at current font size (e.g. 14pt ≈ 0.19" per line).
+  2. Set text box height ≥ estimated required height. Never set height below the estimate.
+  3. If the required height doesn't fit between the image and the next element below, reduce font size or split content to speaker notes — do not let text overflow its bounding box.
+- **Minimum Spacing**: Vertical gap ≥ 0.25" between any image bottom and the text block immediately below it. Gap ≥ 0.15" between adjacent text blocks. Gaps below 0.10" cause visual occlusion even when bounding boxes technically don't intersect.
+- **Aspect-Ratio-Aware Image Sizing**: Before allocating space to images on a slide:
+  1. Read actual image dimensions (PIL `Image.open` → `.size`).
+  2. Text-dense figures (diagrams, flowcharts, architecture overviews) need larger display area. Give them ≥ 40% more width than data plots or photographs on the same slide.
+  3. Never assign equal widths to images with significantly different aspect ratios without verifying the narrowest image is still readable.
+- **One-Shot Layout for Complex Slides**: For slides with 3+ images or where image + text + stat callouts compete for space:
+  1. Write out a dimension plan first — list every element with its target (x, y, w, h) in inches.
+  2. Verify the plan against all the spacing/collision/overflow rules above.
+  3. Apply all changes in a single edit pass. Do not iterate element-by-element — it causes cascading adjustments.
+
+## Operational Notes
+
+- **File locking**: Before editing an existing `.pptx` with python-pptx, ensure PowerPoint is closed. If `PermissionError` on save, save to a different filename and rename after closing PowerPoint.
+- **Verification**: After any layout change, run a bounding-box overlap check on all slide shapes (excluding header at y < 0.9" and footer at y > 4.9"). Report every overlap found before declaring success.
 
 ## Getting Started
 
