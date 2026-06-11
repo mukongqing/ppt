@@ -46,7 +46,9 @@ project/
 - **Task**: Extract all embedded figures (diagrams, data plots, tables) from N papers. Discard decorative icons < 100px.
 - **Output**:
   - `assets/figures/` — image files, naming convention `P<N>_<descriptor>.png`
-  - `assets/figures_index.md` — inventory table: `| Figure | Paper N | Page | Suggested use |`
+  - `assets/figures_index.md` — inventory table: `| Figure | Paper N | Page | Section | Visual description | Suggested use |`
+    - **Section**: chapter/section where the figure appears in the paper (e.g. `§2.3 Method / Network Architecture`). Prevents Introduction diagrams from being used as method illustrations.
+    - **Visual description**: one sentence describing what is literally visible in the figure (e.g. "block diagram: 3 encoder blocks → bottleneck → 3 decoder blocks, skip connections as dashed lines"). Describe content, not meaning. This is the anchor for agent3's matching.
 - **Constraints**: Preserve ≥ 150 dpi equivalent. No re-compression. No content alteration.
 
 ### agent2 — Text Curation
@@ -66,6 +68,13 @@ project/
   - `prd/slide_specs.md` — per-slide spec table, 10 fields per slide: page / chapter / assertion headline / core claim / supporting points (3–5) / figure reference / provenance / speaker notes outline / suggested layout
   - `prd/source_map.md` — slide-to-paper provenance mapping
 - **Constraints**: ppt-creator must not fabricate data. No business-pitch tone. Fit within 20 minutes.
+- **Visual Verification Gate** (MANDATORY, before finalizing slide_specs.md):
+  1. For every slide that references a figure, use the `Read` tool to open the actual image file.
+  2. Write a verification line: `[VERIFY] Slide N: Saw [specific visible content], matches assertion "[headline]" because [reason].`
+  3. If the figure does NOT match the slide assertion:
+     - Swap in a better figure from `figures_index.md` and re-verify, OR
+     - Mark slide layout as `text-only`, demote figure reference to speaker notes.
+  4. Append all verification lines to `slide_specs.md` so agent4 has the evidence trail.
 
 ### agent4 — PPTX Generation
 - **Tool**: `pptx` skill → `pptxgenjs`
@@ -73,6 +82,11 @@ project/
 - **Output**: `final_presentation.pptx` + `speaker_notes.md`
 - **Slide templates**: Cover (`#21295C` full-bleed) / TOC (white) / Standard content (top title bar + bottom page number) / Full-image / Closing (`#21295C` full-bleed)
 - **Constraints**: Use relative paths for assets. Embed provenance in speaker notes on every slide. Use only fonts available on Windows.
+- **Keyword Overlap Guardrail**: Before placing a figure on a slide:
+  1. Extract keywords from: slide assertion headline + 3–5 supporting points
+  2. Extract keywords from: figure filename + agent1 Visual description
+  3. Filter stop words: the, a, an, of, in, on, and, with, using, for, from, this, that, these, those
+  4. If zero overlap of meaningful keywords → skip figure, use text-only layout for that slot, append to speaker notes: `⚠ FIGURE-MISMATCH: [filename] skipped — no keyword overlap with slide content. Check manually.`
 
 ## Getting Started
 
