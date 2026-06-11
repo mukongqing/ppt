@@ -104,6 +104,21 @@ project/
   1. Write out a dimension plan first — list every element with its target (x, y, w, h) in inches.
   2. Verify the plan against all the spacing/collision/overflow rules above.
   3. Apply all changes in a single edit pass. Do not iterate element-by-element — it causes cascading adjustments.
+- **Figure Readability Check** (MANDATORY, before generating any slide):
+  1. For every slide spec that references a figure, load the image with PIL and compute:
+     ```python
+     img = Image.open(path).convert('L')
+     edges = img.filter(ImageFilter.FIND_EDGES)
+     edge_density = ImageStat.Stat(edges).mean[0]
+     px_per_sq_in = (img.width * img.height) / (display_w * display_h)
+     ```
+  2. If `edge_density > 15` AND `px_per_sq_in > 200000` → flag as UNREADABLE.
+  3. `display_w` and `display_h` are the planned dimensions from the slide spec's suggested layout.
+- **Auto-Split for Unreadable Figures**: When a figure is flagged UNREADABLE, split the slide into two physical slides sharing the same assertion headline:
+  - **Slide N-A (text page)**: Same headline + all text content at full size. Figure removed or reduced to ≤ 2" thumbnail. Page number = N.
+  - **Slide N-B (full-figure page)**: Same headline + full-size figure filling ≥ 60% of content area + one-line annotation at bottom (10-12pt gray): `[Paper X, Fig. Y] [short description — ≤ 30 Chinese chars]`. Page number = N (shared with N-A).
+  - **Speaker notes**: N-A keeps full original notes. N-B gets: "This figure shows [one-sentence description]. Source: [Paper X, Page N]." + transition to next chapter.
+  - **Impact**: +1 slide per UNREADABLE figure. Total slide count may increase from ~15-18 to ~16-21. Speaking time +15-30s per split.
 
 ## Operational Notes
 
