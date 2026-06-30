@@ -1,125 +1,143 @@
 # Paper-to-Presentation
 
-A Claude Code skill that transforms a batch of academic papers into a structured slide deck through a four-stage pipeline: figure extraction → text curation → narrative architecture → slide generation.
+A reusable Codex-compatible skill that transforms academic papers into a sourced, editable PowerPoint workflow. The pipeline preserves the original four-stage design—figure extraction → text and evidence curation → narrative/slide specification → PPTX generation—without relying on Claude-specific `pdf`, `ppt-creator`, or `pptx` skills.
 
-## Why This Exists
+## Codex skill location
 
-The default AI-assisted presentation workflow has predictable failure modes: garish color palettes, vacuous section headers ("Introduction to Method X"), inconsistent citation formatting, and slides that give the speaker no timing guidance. You didn't notice until you were standing at the podium.
+The repository-scoped skill lives at:
 
-This skill decomposes the problem into four sequential agents, each producing structured, verifiable intermediate artifacts. When something goes wrong, you re-run one stage—not the entire pipeline.
-
-## Pipeline
-
-```
-Papers (papers/)
-    │
-    ▼
-┌─────────────────────────────────────────┐
-│ agent1  Figure extraction   pdf skill   │
-│         Output: assets/figures/ + index │
-└──────────────┬──────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────┐
-│ agent2  Text curation       pdf skill   │
-│         Output: claims DB + source map  │
-│                 + data tables           │
-└──────────────┬──────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────┐
-│ agent3  Narrative design  ppt-creator   │
-│         Output: per-slide spec (15-18)  │
-└──────────────┬──────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────┐
-│ agent4  Slide generation    pptx skill  │
-│         Output: final_presentation.pptx │
-└─────────────────────────────────────────┘
+```text
+.agents/skills/paper-to-presentation/
 ```
 
-## Design Rationale
+Codex should read `.agents/skills/paper-to-presentation/SKILL.md` before any paper-to-PPT task in this repository.
 
-**Why four agents instead of one?** Each stage has an independent verification gate. Figure extraction missed a plot? Re-run agent1, nothing else. A single monolithic prompt produces lower-quality output and is harder to debug. Short, focused agent prompts outperform long ones.
+## Repository layout
 
-**Why citations in speaker notes instead of on-slide?** The audience reads the slide; the speaker reads the notes. Provenance annotations belong in the latter. Clean slides, traceable claims.
+```text
+papers/                         # Input PDFs supplied by the user
+assets/                         # Extracted figures, source indexes, evidence files
+assets/figures/                 # Extracted figure images
+prd/                            # Slide outline, slide specs, source map, copied config
+output/                         # Final editable PPTX and speaker notes
+.agents/skills/paper-to-presentation/
+  SKILL.md                      # Codex skill instructions and workflow contract
+  scripts/                      # Runnable Python and Node.js implementation files
+  references/sample_config.json # Minimal presentation configuration
+```
 
-**Why lock the color palette?** Giving an agent freedom to "pick a good color scheme" reliably produces blue-orange AI slop. Hardcoding Ocean Gradient removes this entire class of failure.
+## Required environment setup
 
-**Why figure verification?** The original pipeline matched figures to slides using text similarity alone — agent1 wrote a one-line "Suggested use" for each figure, agent3 assigned figures to slides by reading those lines. No agent ever looked at the actual images. A diagram labeled "method overview" could end up on an Introduction slide about background context, because the text description was too vague to disambiguate. The fix operates at three levels:
+From the repository root, install the runtime dependencies:
 
-1. **agent1 (richer metadata):** `figures_index.md` now includes the paper section where each figure appears and a literal visual description of what the image contains — not what it means, but what is visible. This gives agent3 three interlocking signals (section context + visual content + suggested use) instead of one fuzzy label.
+```bash
+python -m pip install -r requirements.txt
+npm install
+```
 
-2. **agent3 (visual verification gate):** Before finalizing slide specs, every slide that references a figure must pass a mandatory check — the agent opens the actual image file with the `Read` tool and writes a `[VERIFY]` line confirming the visible content matches the slide's assertion headline. Mismatches trigger a figure swap or text-only fallback.
+The workflow uses:
 
-3. **agent4 (keyword overlap guardrail):** As a last line of defense, before placing a figure on a slide, meaningful keywords from the slide content and figure metadata are compared. Zero overlap skips the figure and adds a warning to speaker notes.
+- **Python + PyMuPDF** for PDF page text and embedded figure extraction.
+- **Pillow** for image dimension and readability checks.
+- **Node.js + PptxGenJS** for editable PowerPoint generation.
+
+## Place papers in `papers/`
+
+Copy academic PDFs into the repository-level `papers/` directory:
+
+```bash
+mkdir -p papers
+cp /path/to/paper-1.pdf papers/
+cp /path/to/paper-2.pdf papers/
+```
+
+Do not place generated intermediate files in `papers/`; keep generated artifacts in `assets/`, `prd/`, and `output/`.
+
+## Run the workflow stages
+
+Run stages in order and inspect each intermediate artifact before proceeding. The scripts are conservative helpers: they produce sourced drafts and indexes that Codex or a human should review before generating a final deck.
+
+### Stage 1 — figure extraction
+
+```bash
+python .agents/skills/paper-to-presentation/scripts/extract_figures.py --papers papers --out assets
+```
+
+Outputs:
+
+- `assets/figures/`
+- `assets/figures_index.md`
+- `assets/source_index.md`
+
+### Stage 2 — text and evidence curation
+
+```bash
+python .agents/skills/paper-to-presentation/scripts/curate_text.py --papers papers --out assets
+```
+
+Outputs:
+
+- `assets/core_text.md`
+- `assets/data_points.md`
+- updated `assets/source_index.md`
+
+### Stage 3 — narrative and slide specification generation
+
+```bash
+python .agents/skills/paper-to-presentation/scripts/generate_slide_specs.py --assets assets --prd prd --config .agents/skills/paper-to-presentation/references/sample_config.json
+```
+
+Outputs:
+
+- `prd/slide_outline.md`
+- `prd/slide_specs.md`
+- `prd/source_map.md`
+- `prd/presentation_config.json`
+
+Review these files for provenance, narrative flow, unsupported claims, and figure matches before generating a deck.
+
+### Optional validation — figure readability checks
+
+```bash
+python .agents/skills/paper-to-presentation/scripts/validate_assets.py --figures assets/figures
+```
+
+Output:
+
+- `assets/figure_validation.md`
+
+### Stage 4 — generate the final editable PPTX
+
+Only run this after the intermediate artifacts are generated and reviewed:
+
+```bash
+node .agents/skills/paper-to-presentation/scripts/generate_pptx.js --config prd/presentation_config.json --spec prd/slide_specs.md --out output/final_presentation.pptx
+```
+
+Outputs:
+
+- `output/final_presentation.pptx`
+- `output/speaker_notes.md`
+
+## Using the skill later
+
+- **Codex CLI:** open this repository and ask Codex to use the `paper-to-presentation` skill. Codex should read `.agents/skills/paper-to-presentation/SKILL.md`, place/read PDFs from `papers/`, then run the staged scripts.
+- **Codex IDE extension:** keep the repository workspace open, add PDFs to `papers/`, and request a paper-to-PPT workflow. The root `AGENTS.md` instructs Codex to preserve provenance and generate intermediate artifacts before PPTX output.
+- **Codex App:** attach or add PDFs into `papers/` in the workspace, then ask for a sourced presentation. Review `assets/` and `prd/` artifacts before approving final deck generation.
 
 ## Constraints
 
 | Dimension | Rule |
 |-----------|------|
-| Content provenance | 100% sourced from papers. No fabrication, no extrapolation. |
-| Color | `#065A82` / `#1C7293` / `#21295C` + white / light gray |
-| Headlines | Full assertion sentences. No topic labels. |
-| Citations | Speaker notes only: `[Paper X, Page N / Paragraph N]` |
-| Typography | System UI fonts (Segoe UI / Helvetica) + Consolas for data |
-| Animation | None. No transitions, no entrance effects, no gradients. |
-| Text density | ≤ 70 words per slide (excluding annotations) |
-| Speaker notes | 45–60 seconds of spoken material per slide |
+| Content provenance | Every claim, figure, table, and numeric result must trace to a source PDF. |
+| Fabrication | Missing evidence must be marked as missing; never invent citations or findings. |
+| Slide text | Keep surface text concise, ideally no more than 70 words per slide. |
+| Citations | Put provenance in speaker notes and PRD artifacts, not on slide surfaces. |
+| Output | Generate editable PowerPoint via PptxGenJS, not screenshots of slides. |
 
-## Installation
+## Not generated yet
 
-```bash
-git clone https://github.com/elinglijiaoqiao/presentation-ppt-maker.git
-ln -s "$(pwd)/presentation-ppt-maker" ~/.claude/skills/paper-to-presentation
-```
-
-Or copy `SKILL.md` directly into `~/.claude/skills/paper-to-presentation/`.
-
-## Dependencies
-
-| Skill | Role |
-|-------|------|
-| `pdf` | Figure extraction (agent1) + text extraction (agent2) |
-| `ppt-creator` | Pyramid-principle narrative structure + assertion headlines (agent3) |
-| `pptx` | pptxgenjs slide generation (agent4) |
-
-All three ship with Claude Code. No additional installation required.
-
-Optionally pair with a `paper-search` CLI for upstream literature retrieval (arXiv, Semantic Scholar, PubMed).
-
-## Project Layout
-
-```
-your-presentation/
-  papers/                    # Input: N PDF papers
-  assets/
-    figures/                 # agent1: extracted figures
-    figures_index.md         # agent1: figure inventory
-    core_text.md             # agent2: curated claims by chapter
-    source_index.md          # agent2: full provenance table
-    data_points.md           # agent2: key metrics quick-reference
-  prd/
-    slide_outline.md         # agent3: overall structure + timing
-    slide_specs.md           # agent3: per-slide spec (10 fields)
-    source_map.md            # agent3: slide-to-paper mapping
-  final_presentation.pptx    # agent4: deliverable
-  speaker_notes.md           # agent4: compiled speaker notes
-```
-
-## Use Cases
-
-- Undergraduate / graduate course presentations (15–20 min)
-- Group meeting paper reports
-- Poster-to-oral conversion for conferences
-- Review article visualization
-
-## Not For
-
-- Pitch decks or product launches (different narrative style)
-- Non-academic content
-- Single-paper lightning talks (the pipeline is overkill—use a lighter approach)
+This repository implements, tests, and documents the workflow. It does not include a generated real presentation; add PDFs to `papers/` and run the staged commands when you are ready to create one.
 
 ## License
 
