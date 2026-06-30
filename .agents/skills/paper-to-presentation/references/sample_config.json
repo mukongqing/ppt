@@ -1,0 +1,16 @@
+{
+  "title": "Paper-to-Presentation Draft",
+  "subtitle": "Generated from sourced academic papers",
+  "author": "Presenter Name",
+  "slide_count_target": 12,
+  "talk_minutes": 15,
+  "theme": {
+    "primary": "065A82",
+    "secondary": "1C7293",
+    "dark": "21295C",
+    "light": "F2F2F2",
+    "white": "FFFFFF"
+  },
+  "output_pptx": "output/final_presentation.pptx",
+  "speaker_notes": "output/speaker_notes.md"
+}

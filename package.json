@@ -1,0 +1,18 @@
+{
+  "name": "paper-to-presentation-skill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Codex-compatible paper-to-presentation workflow using PyMuPDF, Pillow, and PptxGenJS.",
+  "type": "module",
+  "scripts": {
+    "extract:figures": "python .agents/skills/paper-to-presentation/scripts/extract_figures.py",
+    "curate:text": "python .agents/skills/paper-to-presentation/scripts/curate_text.py",
+    "spec:slides": "python .agents/skills/paper-to-presentation/scripts/generate_slide_specs.py",
+    "validate:assets": "python .agents/skills/paper-to-presentation/scripts/validate_assets.py",
+    "deck:build": "node .agents/skills/paper-to-presentation/scripts/generate_pptx.js"
+  },
+  "dependencies": {
+    "pptxgenjs": "^3.12.0"
+  },
+  "devDependencies": {}
+}
